@@ -1,13 +1,13 @@
-import textwrap
 import re
-from typing import List, Sequence, Optional
+import textwrap
+from collections.abc import Sequence
 
 
 __all__ = [
-    "normalize_indent",
     "list_styles",
-    "stylize",
+    "normalize_indent",
     "resolve_styles",
+    "stylize",
 ]
 
 
@@ -19,16 +19,12 @@ def normalize_indent(text: str) -> str:
     :rtype: str
     """
     if "\n" in text.strip():
-        min_indent = min(
-            len(line) - len(line.lstrip())
-            for line in text.splitlines()[1:]
-            if line.strip()
-        )
+        min_indent = min(len(line) - len(line.lstrip()) for line in text.splitlines()[1:] if line.strip())
         text = " " * min_indent + text
     return textwrap.dedent(text).strip()
 
 
-def list_styles(text: str) -> List[str]:
+def list_styles(text: str) -> list[str]:
     """Extract Rich styles from a text and returns the list of tags in their order of appearance.
     Only lists unique opening tags, closing tags are ignored. Nested tags are supported.
     :param text: The text to list styles from.
@@ -62,14 +58,12 @@ def resolve_styles(text: str) -> str:
     for style in list_styles(text):
         replacement = resolve_styles(style)
         tag = re.escape(style)
-        text = re.sub(
-            rf"\[(.*?)(?:{tag})(.*?)\](.*?)\[\/\1(?:{tag})\2\]", replace_tag, text
-        )
+        text = re.sub(rf"\[(.*?)(?:{tag})(.*?)\](.*?)\[\/\1(?:{tag})\2\]", replace_tag, text)
 
     return text
 
 
-def join(parts: Sequence[str], last_delimiter: Optional[str] = None) -> str:
+def join(parts: Sequence[str], last_delimiter: str | None = None) -> str:
     """Join parts, optionally adding a last delimiter between the last two items.
     :param parts: Parts to join.
     :param last_delimiter: The last delimiter to add.

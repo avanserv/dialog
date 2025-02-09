@@ -1,21 +1,24 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
-def parse_requirements(filename):
-    with open(filename, "r") as file:
-        return file.read().splitlines()
+
+with open("README.md") as fh:
+    long_description = fh.read()
 
 setup(
     name="avanserv-dialog",
-    version="0.1.1",
+    version="1.0.0",
     author="Antoine VS",
     author_email="avs@avanserv.com",
     description="User-friendly API for console-based user interaction.",
-    long_description=open("README.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/avanserv/dialog",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    install_requires=parse_requirements("requirements.txt"),  # Include requirements.txt
+    install_requires=[
+        "inquirerpy>=0.3.4,<4",
+        "rich>=12.6,<13",
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

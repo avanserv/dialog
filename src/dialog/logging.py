@@ -3,12 +3,12 @@ import re
 import sys
 from contextlib import contextmanager
 from logging import LogRecord
-from typing import Dict, Literal, Union
+from typing import Literal
 
 from rich.logging import RichHandler
 from rich.text import Text
 
-from . import strings, console
+from . import console, strings
 
 
 __all__ = ["LOG_LEVEL", "silence_loggers"]
@@ -46,10 +46,11 @@ if __log_level:
 # --- Logging handler customization --------------------------------------------
 # Display the log level as a single character in a colored box
 
+
 class DialogRichHandler(RichHandler):
     """Custom `RichHandler` to show the log level as a single character in a colored box."""
 
-    symbols: Dict[Union[int, Literal["default"]], str] = {
+    symbols: dict[int | Literal["default"], str] = {
         logging.CRITICAL: "~",
         logging.ERROR: "-",
         logging.WARNING: "!",
@@ -88,9 +89,7 @@ class DialogRichHandler(RichHandler):
 
 logging.basicConfig(
     level=LOG_LEVEL,
-    format="%(message)s"
-    if LOG_LEVEL != "DEBUG"
-    else "[color.black](%(name)s)[/color.black] %(message)s",
+    format="%(message)s" if LOG_LEVEL != "DEBUG" else "[color.black](%(name)s)[/color.black] %(message)s",
     handlers=[
         DialogRichHandler(
             rich_tracebacks=True,
@@ -109,6 +108,7 @@ for logger in SILENCED_LOGGERS:
 # --- Context manager to silence loggers ---------------------------------------
 # Context manager to silence loggers temporarily while executing a block of code
 
+
 @contextmanager
 def silence_loggers(*names: str):
     """Context manager to silence loggers.
@@ -124,5 +124,5 @@ def silence_loggers(*names: str):
 
     yield
 
-    for logger, level in zip(loggers, levels):
+    for logger, level in zip(loggers, levels, strict=False):
         logger.setLevel(level)

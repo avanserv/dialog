@@ -1,25 +1,18 @@
 """Interact with the terminal and the user."""
 
+import logging
 import os
 import re
-from abc import ABC
+from collections.abc import Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
-    Dict,
-    List,
     Literal,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-    TYPE_CHECKING,
 )
-import logging
 
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
@@ -56,7 +49,7 @@ def resolve_styles(styles: str) -> str:
     :param str styles: The styles string to resolve.
     """
     for style in styles.split():
-        if style in RICH_THEME.styles.keys():
+        if style in RICH_THEME.styles:
             styles = styles.replace(style, str(RICH_THEME.styles[style]))
 
     return styles
@@ -78,7 +71,7 @@ class TableHeader:
     style: str = ""
     """Style to apply on each element of the column."""
 
-    def dict(self) -> Dict[str, Any]:
+    def dict(self) -> dict[str, Any]:
         """Return the table header as a dictionary."""
         return {
             "header": self.title,
@@ -92,7 +85,7 @@ class TableHeader:
 # Colors for logging levels and other objects rendered to the terminal.
 
 
-class Colors(ABC):
+class Colors:
     """Terminal colors definitions to use with Rich themes."""
 
     BLACK = "dim"
@@ -208,7 +201,7 @@ class DialogReprHighlighter(ReprHighlighter):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.highlights: List[str] = [
+        self.highlights: list[str] = [
             *self.highlights[:-1],
             *ISO8601Highlighter.highlights,
             _combine_regex(
@@ -227,7 +220,6 @@ class PurportedPathValidator(PathValidator):
 
     def validate(self, document) -> None:
         """Check if user input is a valid path."""
-
         path = Path(document.text).expanduser()
 
         if self._is_file and path.is_dir():
@@ -294,20 +286,17 @@ class Console(RichConsole):
 
     def clear_line(self, count: int = 1):
         """Clear up a number of lines from the terminal.
+
         If a count is provided, the same amount of lines will be cleared.
         :param int count: Number of lines to clear
         """
-        assert count >= 0, "count must not be negative"
-
         if not self.is_live:
             self.control(CONTROL_LINE_ERASE, CONTROL_CURSOR_RESET)
 
         for _ in range(count):
             self.control(CONTROL_LINE_UP, CONTROL_LINE_ERASE, CONTROL_CURSOR_RESET)
 
-    def _print_to_file(
-        self, renderable: RenderableType, file: Path, *args: Any, **kwargs: Any
-    ) -> None:
+    def _print_to_file(self, renderable: RenderableType, file: Path, *args: Any, **kwargs: Any) -> None:
         """Print to a file.
         :param renderable: The object to print.
         :param file: The file to print to.
@@ -335,8 +324,8 @@ class Console(RichConsole):
     def print(
         self,
         renderable: RenderableType = "",
-        file: Optional[Path] = None,
-        auto_paginate: bool = False,
+        file: Path | None = None,
+        auto_paginate: bool = False,  #  noqa: FBT001,FBT002
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -376,16 +365,17 @@ class Console(RichConsole):
 
             os.environ["PAGER"] = pager
             os.environ["LESS"] = less
-        else:
-            super().print(renderable, *args, **kwargs)
+            return None
+
+        return super().print(renderable, *args, **kwargs)
 
     def table(
         self,
         headers: Sequence[TableHeader],
-        rows: Sequence[List[Any]],
-        totals: Optional[List[Any]] = None,
-        file: Optional[Path] = None,
-        title: Optional[str] = None,
+        rows: Sequence[list[Any]],
+        totals: list[Any] | None = None,
+        file: Path | None = None,
+        title: str | None = None,
         **kwargs,
     ) -> None:
         """Print a table to stdout with highlighting and theming.
@@ -431,13 +421,9 @@ class Console(RichConsole):
         if totals:
             table.add_row(*totals, style="bold" if file is None else None)
 
-        return self.print(
-            table, file=file, crop=not file, overflow="ignore", no_wrap=True
-        )
+        return self.print(table, file=file, crop=not file, overflow="ignore", no_wrap=True)
 
-    def code(
-        self, text: str, language: str = "python", file: Optional[Path] = None, **kwargs
-    ):
+    def code(self, text: str, language: str = "python", file: Path | None = None, **kwargs):
         """Display a code block.
         :param text: Code to display.
         :param language: Language of the code.
@@ -457,11 +443,12 @@ class Console(RichConsole):
 
         kwargs.setdefault("background_color", "default")
         kwargs.setdefault("theme", "github-dark")
-        self.print(Syntax(text, language, **kwargs))
+        return self.print(Syntax(text, language, **kwargs))
 
     def __log(self, level: int, message: object, *args: Any, **kwargs: Any):
         """Log a message with a specific level."""
         from .logging import logging
+
         logger = logging.getLogger("dialog")
 
         logger.log(level, message, *args, **kwargs)
@@ -504,9 +491,7 @@ class Console(RichConsole):
 
         return spinner(message)
 
-    def __prompt_factory(
-        self, prompt_type: Type[BaseSimplePrompt], message: str, **kwargs
-    ) -> Any:
+    def __prompt_factory(self, prompt_type: type[BaseSimplePrompt], message: str, **kwargs) -> Any:
         """Create a prompt object.
         :param prompt_type: Type of prompt to create.
         :param message: Prompt message.
@@ -535,13 +520,9 @@ class Console(RichConsole):
                         "skipped": False,
                     }
 
-                    prompt_message: List[Tuple[str, str]] = prompt._get_prompt_message()  # type: ignore [call_args]
-                    question: str = next(
-                        m for m in prompt_message if m[0] == "class:answered_question"
-                    )[1].strip()
-                    answer: str = next(
-                        m for m in prompt_message if m[0] == "class:answer"
-                    )[1].strip()
+                    prompt_message: list[tuple[str, str]] = prompt._get_prompt_message()  # type: ignore [call_args]
+                    question: str = next(m for m in prompt_message if m[0] == "class:answered_question")[1].strip()
+                    answer: str = next(m for m in prompt_message if m[0] == "class:answer")[1].strip()
 
                     self.print(
                         f"{strings.stylize(INQUIRER_MARK, 'bold color.purple')} "
@@ -559,6 +540,7 @@ class Console(RichConsole):
 
     def text(self, message: str, default: str = "") -> str:
         """Prompt for some free text.
+
         :param message: Question to ask the user
         :param default: Set the default value of the prompt
         :return: The text entered by the user
@@ -574,11 +556,12 @@ class Console(RichConsole):
     def integer(
         self,
         message: str,
-        default: Optional[int] = None,
-        min_value: Optional[int] = None,
-        max_value: Optional[int] = None,
-    ) -> Optional[int]:
+        default: int | None = None,
+        min_value: int | None = None,
+        max_value: int | None = None,
+    ) -> int | None:
         """Prompt for an integer number.
+
         :param message: Question to ask the user
         :param default: Set the default value of the prompt
         :param min_value: Set the minimum allowed value
@@ -600,11 +583,12 @@ class Console(RichConsole):
     def floating(
         self,
         message: str,
-        default: Optional[float] = None,
-        min_value: Optional[float] = None,
-        max_value: Optional[float] = None,
-    ) -> Optional[float]:
+        default: float | None = None,
+        min_value: float | None = None,
+        max_value: float | None = None,
+    ) -> float | None:
         """Prompt for a floating-point number.
+
         :param message: Question to ask the user
         :param default: Set the default value of the prompt
         :param min_value: Set the minimum allowed value
@@ -627,6 +611,7 @@ class Console(RichConsole):
 
     def secret(self, message: str = "Password") -> str:
         """Prompt for a secret value hidden to the reader.
+
         :param str message: Question to ask the user
         :return: The secret entered by the user
         :rtype: str
@@ -638,8 +623,9 @@ class Console(RichConsole):
             mandatory_message="A value is required",
         )
 
-    def confirm(self, message: str, default: bool = False) -> bool:
+    def confirm(self, message: str, default: bool = False) -> bool:  # noqa: FBT001,FBT002
         """Prompt for a confirmation.
+
         :param message: Question to ask the user
         :param default: Set the default text value of the prompt
         :return: True if the user confirmed, False otherwise
@@ -651,8 +637,9 @@ class Console(RichConsole):
             default=default,
         )
 
-    def directory(self, message: str, default: Optional[str] = None) -> Optional[str]:
+    def directory(self, message: str, default: str | None = None) -> str | None:
         """Prompt for a directory path.
+
         :param message: Question to ask the user
         :param default: Set the default text value of the prompt
         :return: Path to the directory to use
@@ -663,13 +650,12 @@ class Console(RichConsole):
             message=message,
             default=default,
             only_directories=True,
-            validate=PurportedPathValidator(
-                message="Path must not be a file", is_dir=True
-            ),
+            validate=PurportedPathValidator(message="Path must not be a file", is_dir=True),
         )
 
-    def filepath(self, message: str, default: Optional[str] = None) -> Optional[str]:
+    def filepath(self, message: str, default: str | None = None) -> str | None:
         """Prompt for a file path.
+
         :param message: Question to ask the user
         :param default: Set the default text value of the prompt
         :return: Path to the file to use
@@ -680,18 +666,17 @@ class Console(RichConsole):
             message=message,
             default=default,
             only_directories=True,
-            validate=PurportedPathValidator(
-                message="Path must not be a directory", is_file=True
-            ),
+            validate=PurportedPathValidator(message="Path must not be a directory", is_file=True),
         )
 
     def select(
         self,
         message: str,
-        choices: Sequence[Tuple[Optional[Any], Optional[str]]],
-        default: Optional[Any] = None,
-    ) -> Optional[Any]:
+        choices: Sequence[tuple[Any | None, str | None]],
+        default: Any | None = None,
+    ) -> Any | None:
         """Prompt for a selection.
+
         :param message: Question to ask the user
         :param choices: List of choices to select from
             Each option is a tuple in the format `("value", "human-readable name")`
@@ -710,10 +695,11 @@ class Console(RichConsole):
     def checkbox(
         self,
         message: str,
-        choices: Sequence[Tuple[Any, Optional[str]]],
-        defaults: Optional[Sequence[Any]] = None,
+        choices: Sequence[tuple[Any, str | None]],
+        defaults: Sequence[Any] | None = None,
     ):
         """Prompt for a checkbox selection.
+
         :param message: Question to ask the user
         :param choices: List of choices to select from
             Each option is a tuple in the format `("value", "human-readable name")`
@@ -727,22 +713,18 @@ class Console(RichConsole):
         return self.__prompt_factory(
             inquirer.checkbox,
             message=message,
-            choices=[
-                Choice(choice[0], name=choice[-1], enabled=choice[0] in defaults)
-                for choice in choices
-            ],
-            transformer=lambda selected: strings.join_and(selected)
-            if selected
-            else "None",
+            choices=[Choice(choice[0], name=choice[-1], enabled=choice[0] in defaults) for choice in choices],
+            transformer=lambda selected: strings.join_and(selected) if selected else "None",
         )
 
     def fuzzy(
         self,
         message: str,
-        choices: Sequence[Tuple[str, Optional[str]]],
-        default: Optional[str] = None,
-    ) -> Optional[Any]:
+        choices: Sequence[tuple[str, str | None]],
+        default: str | None = None,
+    ) -> Any | None:
         """Prompt for a fuzzy selection.
+
         :param message: Question to ask the user
         :param choices: List of choices to select from
             Each option is a tuple in the format `("value", "human-readable name")`
@@ -763,10 +745,11 @@ class Console(RichConsole):
 
     def __number_bounds_message(
         self,
-        min_value: Optional[Union[int, float]],
-        max_value: Optional[Union[int, float]],
+        min_value: int | float | None,
+        max_value: int | float | None,
     ) -> str:
         """Build a message for a number validator.
+
         :param min_value: Minimum allowed value
         :param max_value: Maximum allowed value
         :return: The message to display

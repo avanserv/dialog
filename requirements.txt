@@ -1,2 +1,0 @@
-inquirerpy==0.3.4
-rich>=12.6,<13

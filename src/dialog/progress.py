@@ -2,7 +2,7 @@
 stacked on top of each other.
 """
 
-from typing import ClassVar, List, Optional
+from typing import ClassVar, cast
 
 from rich.console import RenderableType
 from rich.markup import escape
@@ -20,7 +20,7 @@ from rich.style import StyleType
 
 from . import strings
 from .console import console
-from .logging import DialogRichHandler, logging, LOG_LEVEL
+from .logging import LOG_LEVEL, DialogRichHandler, logging
 
 
 __all__ = ["Progress", "StackedStatus", "spinner"]
@@ -50,15 +50,18 @@ class Progress(RichProgress):
     having multiple live displays at once.
     """
 
-    def __init__(self, download: bool = False):
-        handler = next(
-            filter(
-                lambda handler: isinstance(handler, DialogRichHandler),
-                logger.root.handlers,
+    def __init__(self, download: bool = False):  # noqa: FBT001,FBT002
+        handler = cast(
+            DialogRichHandler,
+            next(
+                filter(
+                    lambda handler: isinstance(handler, DialogRichHandler),
+                    logger.root.handlers,
+                ),
+                DialogRichHandler(console=console),
             ),
-            DialogRichHandler(console=console),
         )
-        assert isinstance(handler, DialogRichHandler)
+
         log_info_symbol: str = escape(handler.get_level_symbol_text(logging.INFO))
 
         columns = [
@@ -68,12 +71,8 @@ class Progress(RichProgress):
             ),
             BarColumn(),
             TaskProgressColumn(
-                text_format=strings.stylize(
-                    "{task.percentage:>6.2f}%", "progress.percentage"
-                ),
-                text_format_no_percentage=strings.stylize(
-                    "  -.--%", "progress.percentage"
-                ),
+                text_format=strings.stylize("{task.percentage:>6.2f}%", "progress.percentage"),
+                text_format_no_percentage=strings.stylize("  -.--%", "progress.percentage"),
             ),
             TimeRemainingColumn(),
             TimeElapsedColumn(),
@@ -109,7 +108,7 @@ class StackedStatus(Status):
     by stopping the previous one when starting a new one, then resuming the previous one after.
     """
 
-    _stack: ClassVar[List[Status]] = []
+    _stack: ClassVar[list[Status]] = []
     """Stack of active statuses."""
 
     _paused: ClassVar[bool] = False
@@ -142,7 +141,7 @@ class StackedStatus(Status):
             console.is_live = False
 
     @property
-    def stack(self) -> List[Status]:
+    def stack(self) -> list[Status]:
         """Return the stack of active statuses."""
         return self.__class__._stack
 
@@ -168,20 +167,17 @@ class StackedStatus(Status):
 
     def update(
         self,
-        status: Optional[RenderableType] = None,
+        status: RenderableType | None = None,
         *,
-        spinner: Optional[str] = None,
-        spinner_style: Optional[StyleType] = None,
-        speed: Optional[float] = None,
+        spinner: str | None = None,
+        spinner_style: StyleType | None = None,
+        speed: float | None = None,
     ) -> None:
-        if status is not None:
-            if isinstance(status, str):
-                status = strings.normalize_indent(status)
-                status = console.render_str(status)
+        if isinstance(status, str):
+            status = strings.normalize_indent(status)
+            status = console.render_str(status)
 
-        return super().update(
-            status, spinner=spinner, spinner_style=spinner_style, speed=speed
-        )
+        return super().update(status, spinner=spinner, spinner_style=spinner_style, speed=speed)
 
 
 def spinner(message: str) -> StackedStatus:
