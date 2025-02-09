@@ -1,1 +1,1 @@
-# Initialize the dialog package
+from .console import console

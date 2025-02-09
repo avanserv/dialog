@@ -7,7 +7,7 @@ User-friendly API for console-based user interaction.
 Install the package through `pip`:
 
 ```bash
-pip install dialog
+pip install avanserv-dialog
 ```
 
 ## Usage
